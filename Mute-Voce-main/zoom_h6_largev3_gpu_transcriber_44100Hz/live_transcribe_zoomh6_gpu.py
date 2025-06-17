@@ -1,3 +1,4 @@
+import argparse
 import sounddevice as sd
 import numpy as np
 import queue
@@ -7,10 +8,9 @@ import traceback
 from faster_whisper import WhisperModel
 
 # ------------------ CONFIGURATION ------------------
-SAMPLERATE = 44100
+SAMPLE_RATE = 44100
 CHANNELS = 1
 CHUNK_DURATION = 5
-DEVICE_NAME_FILTER = "zoom"
 MODEL_SIZE = "large-v3"
 COMPUTE_TYPE = "float16"
 DEVICE_TYPE = "cuda"
@@ -19,17 +19,39 @@ DEVICE_TYPE = "cuda"
 audio_queue = queue.Queue()
 model = None
 
-def get_zoom_device_index(name_filter):
-    try:
-        devices = sd.query_devices()
+def list_input_devices():
+    devices = sd.query_devices()
+    return [
+        (idx, d["name"]) for idx, d in enumerate(devices) if d["max_input_channels"] >= CHANNELS
+    ]
+
+def find_input_device(name=None):
+    devices = sd.query_devices()
+    if name:
         for i, d in enumerate(devices):
-            if name_filter.lower() in d['name'].lower() and d['max_input_channels'] >= CHANNELS:
-                print(f"[INFO] Found input device: {d['name']} (index {i})")
+            if name.lower() in d["name"].lower() and d["max_input_channels"] >= CHANNELS:
                 return i
-        raise ValueError(f"No input device matching '{name_filter}' found.")
-    except Exception as e:
-        print(f"[ERROR] Device lookup failed: {e}")
-        exit(1)
+    default_idx = sd.default.device[0]
+    if default_idx is not None and default_idx >= 0:
+        if devices[default_idx]["max_input_channels"] >= CHANNELS:
+            return default_idx
+    for i, d in enumerate(devices):
+        if d["max_input_channels"] >= CHANNELS:
+            return i
+    raise RuntimeError("No suitable input device found")
+
+def select_input_device(prompt="Select input device"):
+    devices = list_input_devices()
+    if not devices:
+        raise RuntimeError("No input devices available")
+    print(prompt)
+    for n, (idx, name) in enumerate(devices):
+        print(f"[{n}] {name} (index {idx})")
+    choice = input("Enter number: ")
+    try:
+        return devices[int(choice)][0]
+    except (ValueError, IndexError):
+        raise RuntimeError("Invalid device selection")
 
 def audio_callback(indata, frames, time_info, status):
     if status:
@@ -57,13 +79,12 @@ def transcribe_audio(audio_data):
     except Exception as e:
         print(f"[ERROR] Transcription failed:\n{traceback.format_exc()}")
 
-def capture_audio():
-    device_index = get_zoom_device_index(DEVICE_NAME_FILTER)
+def capture_audio(device_index):
     try:
-        with sd.InputStream(samplerate=SAMPLERATE,
+        with sd.InputStream(samplerate=SAMPLE_RATE,
                             channels=CHANNELS,
                             callback=audio_callback,
-                            blocksize=int(SAMPLERATE * 0.5),
+                            blocksize=int(SAMPLE_RATE * 0.5),
                             dtype='float32',
                             device=device_index):
             print("[INFO] Audio stream started. Listening...")
@@ -82,6 +103,18 @@ def capture_audio():
         exit(1)
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Live transcription from microphone")
+    parser.add_argument("--list-devices", action="store_true", help="List audio input devices and exit")
+    parser.add_argument("--device-index", type=int, help="Input device index")
+    parser.add_argument("--device-name", help="Search for input device by name")
+    parser.add_argument("--choose-device", action="store_true", help="Interactively choose an input device")
+    args = parser.parse_args()
+
+    if args.list_devices:
+        for idx, name in list_input_devices():
+            print(f"{idx}: {name}")
+        raise SystemExit
+
     print("[INFO] Initializing Whisper model...")
     try:
         model = WhisperModel(MODEL_SIZE, device=DEVICE_TYPE, compute_type=COMPUTE_TYPE)
@@ -90,7 +123,13 @@ if __name__ == "__main__":
         exit(1)
 
     try:
-        capture_audio()
+        if args.choose_device:
+            device_index = select_input_device()
+        elif args.device_index is not None:
+            device_index = args.device_index
+        else:
+            device_index = find_input_device(args.device_name)
+        capture_audio(device_index)
     except KeyboardInterrupt:
         print("[INFO] Stopped by user.")
     except Exception as e:

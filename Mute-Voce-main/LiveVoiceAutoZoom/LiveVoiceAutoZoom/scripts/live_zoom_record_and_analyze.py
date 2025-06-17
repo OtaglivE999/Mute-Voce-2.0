@@ -1,18 +1,20 @@
 import os
+import sys
 import time
+import argparse
 import numpy as np
 import sounddevice as sd
 import soundfile as sf
 from resemblyzer import VoiceEncoder, preprocess_wav
 from scipy.io.wavfile import write
+from recorder import (
+    find_input_device,
+    list_input_devices,
+    select_input_device,
+)
 
 def find_zoom_input():
-    devices = sd.query_devices()
-    for idx, d in enumerate(devices):
-        if "H6" in d['name'] or "Zoom" in d['name']:
-            if d['max_input_channels'] >= 1:
-                return idx
-    raise RuntimeError("Zoom H6 input device not found. Ensure it is connected and in Audio Interface mode.")
+    return find_input_device("Zoom")
 
 RECORD_SECONDS = 74 * 60  # 4440 seconds
 SAMPLE_RATE = 16000
@@ -24,7 +26,7 @@ FINGERPRINT_PATH = f"fingerprints/voiceprint_{SESSION_ID}.npy"
 LOG_PATH = f"logs/session_{SESSION_ID}.log"
 
 def record_audio(filename, duration, samplerate, channels, device_idx):
-    print(f"[+] Recording {duration}s from Zoom H6 (Device {device_idx})...")
+    print(f"[+] Recording {duration}s from device {device_idx}...")
     audio = sd.rec(int(duration * samplerate), samplerate=samplerate, channels=channels, device=device_idx)
     sd.wait()
     sf.write(filename, audio, samplerate)
@@ -65,13 +67,31 @@ def compare_with_existing(embed):
     return match_log
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Record live audio and analyze")
+    parser.add_argument("--list-devices", action="store_true", help="List available audio input devices")
+    parser.add_argument("--device-index", type=int, help="Input device index to use")
+    parser.add_argument("--device-name", help="Search for input device by name")
+    parser.add_argument("--choose-device", action="store_true", help="Interactively choose an input device")
+    args = parser.parse_args()
+
+    if args.list_devices:
+        for idx, name in list_input_devices():
+            print(f"{idx}: {name}")
+        sys.exit(0)
+
     os.makedirs("recordings", exist_ok=True)
     os.makedirs("enhanced", exist_ok=True)
     os.makedirs("fingerprints", exist_ok=True)
     os.makedirs("logs", exist_ok=True)
 
     try:
-        device_index = find_zoom_input()
+        if args.choose_device:
+            device_index = select_input_device()
+        elif args.device_index is not None:
+            device_index = args.device_index
+        else:
+            device_index = find_input_device(args.device_name)
+
         record_audio(RECORD_PATH, RECORD_SECONDS, SAMPLE_RATE, CHANNELS, device_index)
         enhance_audio(RECORD_PATH, ENHANCE_PATH)
         embedding = fingerprint_audio(ENHANCE_PATH)
@@ -83,3 +103,4 @@ if __name__ == "__main__":
             print(f"[+] Log written to {LOG_PATH}")
     except Exception as e:
         print(f"[ERROR] {e}")
+

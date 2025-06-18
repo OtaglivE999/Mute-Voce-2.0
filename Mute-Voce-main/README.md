@@ -16,6 +16,10 @@ folder. Example:
 
 If no path is given, the script prompts for one.
 
+The optional transcription step relies on the `openai-whisper` library, which
+requires PyTorch and is not included in `requirements.txt`. Install it manually
+with `pip install openai-whisper` if you want transcripts.
+
 If you accidentally provide a path with spaces that cannot be resolved, the
 program attempts to replace spaces in the **file name** with underscores. This
 does not rename parent folders (which could require special permissions). If an

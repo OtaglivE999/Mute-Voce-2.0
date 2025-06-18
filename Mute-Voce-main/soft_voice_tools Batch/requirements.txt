@@ -1,5 +1,4 @@
 librosa
 soundfile
 numpy
-openai-whisper
 ffmpeg-python

@@ -7,7 +7,13 @@ import numpy as np
 
 print("🔊 Full Soft Voice Enhancer + Transcriber")
 
-input_path = input("Enter full path to your audio/video file (.wav, .mp3, .mp4): ").strip().strip('"')
+# allow passing the input file on the command line
+if len(sys.argv) > 1:
+    input_path = sys.argv[1]
+else:
+    input_path = input(
+        "Enter full path to your audio/video file (.wav, .mp3, .mp4): "
+    ).strip().strip('"')
 if not os.path.exists(input_path):
     print(f"❌ File not found: {input_path}")
     sys.exit(1)

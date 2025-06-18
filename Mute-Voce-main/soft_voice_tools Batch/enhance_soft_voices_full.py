@@ -44,8 +44,24 @@ if ext == ".mp4":
     try:
         mp4_output = f"enhanced_{base_name}.mp4"
         print("🎞️ Rebuilding MP4 with enhanced audio...")
-        cmd = f'ffmpeg -y -i "{input_path}" -i "{wav_output}" -c:v copy -map 0:v:0 -map 1:a:0 -shortest "{mp4_output}"'
-        subprocess.run(cmd, shell=True, check=True)
+        # build ffmpeg command as a list to avoid shell injection
+        cmd = [
+            "ffmpeg",
+            "-y",
+            "-i",
+            input_path,
+            "-i",
+            wav_output,
+            "-c:v",
+            "copy",
+            "-map",
+            "0:v:0",
+            "-map",
+            "1:a:0",
+            "-shortest",
+            mp4_output,
+        ]
+        subprocess.run(cmd, check=True)
         print(f"✅ Rebuilt MP4 saved as: {mp4_output}")
     except Exception as e:
         print(f"⚠️ Could not rebuild MP4: {e}")

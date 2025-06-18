@@ -10,7 +10,7 @@ python -m pip install --quiet faster-whisper sounddevice numpy
 CD /D "%~dp0"
 
 :: Run the transcription script
-echo Running Zoom H6 Live Transcription on GPU with large-v3...
+echo Running Live Transcription on GPU with large-v3...
 python live_transcribe_zoomh6_gpu.py
 
 pause

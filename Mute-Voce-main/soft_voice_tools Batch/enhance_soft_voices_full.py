@@ -15,30 +15,31 @@ else:
         "Enter full path to your audio/video file (.wav, .mp3, .mp4): "
     ).strip().strip('"')
 def sanitize_path(path: str) -> str:
-    """Replace spaces with underscores if the path is problematic.
+    """Try to resolve problematic paths that contain spaces.
 
-    If the exact path does not exist but the version with underscores does,
-    use the underscored variant. If the path exists and contains spaces,
-    rename the file to the underscored version.
+    Only the file name is renamed if necessary. Parent directories are left
+    untouched to avoid permission issues. If an underscored file already
+    exists, that version is used.
     """
 
     if " " not in path:
         return path
 
-    candidate = path.replace(" ", "_")
+    directory, filename = os.path.split(path)
+    underscored = filename.replace(" ", "_")
+    candidate = os.path.join(directory, underscored)
 
-    if os.path.exists(path) and not os.path.exists(candidate):
+    if os.path.exists(candidate):
+        print(f"ℹ️ Using existing path '{candidate}'")
+        return candidate
+
+    if os.path.exists(path) and filename != underscored:
         try:
             os.rename(path, candidate)
             print(f"ℹ️ Renamed '{path}' to '{candidate}'")
             return candidate
         except Exception as e:
             print(f"⚠️ Could not rename '{path}': {e}")
-            return path
-
-    if os.path.exists(candidate):
-        print(f"ℹ️ Using existing path '{candidate}'")
-        return candidate
 
     return path
 

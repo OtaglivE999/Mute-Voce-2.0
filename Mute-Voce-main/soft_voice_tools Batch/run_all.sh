@@ -5,7 +5,7 @@ cd "$SCRIPT_DIR"
 
 echo "Installing requirements..."
 python3 -m pip install --upgrade pip
-python3 -m pip install librosa soundfile numpy openai-whisper ffmpeg-python --quiet
+python3 -m pip install -r "requirements.txt" --quiet
 
 echo "Running script..."
 python3 "enhance_soft_voices_full.py" "$@"

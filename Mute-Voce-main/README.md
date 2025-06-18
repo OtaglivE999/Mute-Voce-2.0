@@ -3,8 +3,10 @@ Analyze audio for soft voices—far-field or similar—enhance the signal, perfo
 
 ## Usage
 
-Run `run_all.sh` (Linux/macOS) or `run_all.bat` (Windows). Provide a path to an
-audio or video file either as a command-line argument or when prompted.
+Run `run_all.sh` (Linux/macOS) or `run_all.bat` (Windows). These scripts install
+the Python packages listed in `requirements.txt` and then invoke the enhancer.
+Provide a path to an audio or video file either as a command-line argument or
+when prompted.
 If the path contains spaces, wrap it in quotes. The input must be a file, not a
 folder. Example:
 

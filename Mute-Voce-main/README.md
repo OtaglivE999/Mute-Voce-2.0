@@ -3,11 +3,13 @@ Analyze audio for soft voices—far-field or similar—enhance the signal, perfo
 
 ## Usage
 
-Run `run_all.sh` (Linux/macOS) or `run_all.bat` (Windows). You can provide an input
-file path as an argument, e.g.
+Run `run_all.sh` (Linux/macOS) or `run_all.bat` (Windows). Provide a path to an
+audio or video file either as a command-line argument or when prompted.
+If the path contains spaces, wrap it in quotes. The input must be a file, not a
+folder. Example:
 
 ```sh
-./run_all.sh path/to/file.mp4
+./run_all.sh "path/to/My File.mp4"
 ```
 
 If no path is given, the script prompts for one.

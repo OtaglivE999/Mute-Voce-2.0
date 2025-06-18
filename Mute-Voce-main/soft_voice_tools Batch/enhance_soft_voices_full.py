@@ -17,6 +17,9 @@ else:
 if not os.path.exists(input_path):
     print(f"❌ File not found: {input_path}")
     sys.exit(1)
+if not os.path.isfile(input_path):
+    print(f"❌ Path is not a file: {input_path}")
+    sys.exit(1)
 
 base_name = os.path.splitext(os.path.basename(input_path))[0]
 ext = os.path.splitext(input_path)[1].lower()

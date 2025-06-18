@@ -14,6 +14,36 @@ else:
     input_path = input(
         "Enter full path to your audio/video file (.wav, .mp3, .mp4): "
     ).strip().strip('"')
+def sanitize_path(path: str) -> str:
+    """Replace spaces with underscores if the path is problematic.
+
+    If the exact path does not exist but the version with underscores does,
+    use the underscored variant. If the path exists and contains spaces,
+    rename the file to the underscored version.
+    """
+
+    if " " not in path:
+        return path
+
+    candidate = path.replace(" ", "_")
+
+    if os.path.exists(path) and not os.path.exists(candidate):
+        try:
+            os.rename(path, candidate)
+            print(f"ℹ️ Renamed '{path}' to '{candidate}'")
+            return candidate
+        except Exception as e:
+            print(f"⚠️ Could not rename '{path}': {e}")
+            return path
+
+    if os.path.exists(candidate):
+        print(f"ℹ️ Using existing path '{candidate}'")
+        return candidate
+
+    return path
+
+input_path = sanitize_path(input_path)
+
 if not os.path.exists(input_path):
     print(f"❌ File not found: {input_path}")
     sys.exit(1)

@@ -13,3 +13,8 @@ folder. Example:
 ```
 
 If no path is given, the script prompts for one.
+
+If you accidentally provide a path with spaces that cannot be resolved, the
+program attempts to replace those spaces with underscores. If a file by that
+name exists (or the original file can be renamed safely) it will use the
+underscored version automatically.

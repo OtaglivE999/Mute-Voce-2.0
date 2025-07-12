@@ -7,7 +7,7 @@ import time
 import sounddevice as sd
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-from recorder import record_audio, save_audio, find_zoom_input
+from recorder import record_audio, save_audio, find_input_device
 from vad_enhancer import detect_voiced, enhance_audio
 from speaker_recognition import extract_embedding, load_known_speakers, recognize_speaker
 
@@ -29,7 +29,7 @@ class VoiceRecorderGUI:
 
         self.recording = False
         self.stream = None
-        self.device_index = find_zoom_input()
+        self.device_index = find_input_device()
 
         self.start_button = tk.Button(root, text="Start Recording", command=self.start_recording)
         self.start_button.pack(side=tk.LEFT, padx=20)

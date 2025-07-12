@@ -14,3 +14,25 @@ Use `--block-duration` to set the chunk size when reading files. Processing
 recordings block by block prevents memory errors with very long audio while still
 producing a spectrogram of the entire file (only frequencies up to 500 Hz are
 stored).
+
+## Live Zoom Recorder
+
+`LiveVoiceAutoZoom/scripts/live_zoom_record_and_analyze.py` now streams audio
+directly to disk instead of holding the full recording in memory. Use the
+optional `block_duration` parameter of `record_audio()` to control how much
+audio is buffered at a time (default is 10 seconds). This reduces memory usage
+when capturing long sessions.
+
+The recorder works with any accessible microphone. By default the script uses
+the system's default input device. Pass `--device` to specify a device index or
+name substring.
+
+### Command-line options
+
+```
+python live_zoom_record_and_analyze.py [--device DEVICE] [--duration SECS] [--block-duration SECS]
+```
+
+* `--device` – input device index or name substring (default: system default)
+* `--duration` – recording length in seconds (default: 4440)
+* `--block-duration` – length of audio chunks written to disk (default: 10)

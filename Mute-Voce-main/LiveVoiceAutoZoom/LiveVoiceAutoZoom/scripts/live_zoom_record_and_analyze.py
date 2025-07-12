@@ -4,15 +4,34 @@ import numpy as np
 import sounddevice as sd
 import soundfile as sf
 from resemblyzer import VoiceEncoder, preprocess_wav
-from scipy.io.wavfile import write
+import argparse
 
-def find_zoom_input():
+def find_input_device(name_substr=None):
+    """Return an input device index.
+
+    Parameters
+    ----------
+    name_substr : str, optional
+        Substring to search for in device names. If provided, the first
+        matching device with input channels is returned.
+    """
     devices = sd.query_devices()
-    for idx, d in enumerate(devices):
-        if "H6" in d['name'] or "Zoom" in d['name']:
-            if d['max_input_channels'] >= 1:
+
+    if name_substr:
+        for idx, d in enumerate(devices):
+            if name_substr.lower() in d['name'].lower() and d['max_input_channels'] >= 1:
                 return idx
-    raise RuntimeError("Zoom H6 input device not found. Ensure it is connected and in Audio Interface mode.")
+        raise RuntimeError(f"Input device containing '{name_substr}' not found.")
+
+    default = sd.default.device[0] if sd.default.device else None
+    if default is not None and sd.query_devices(default)['max_input_channels'] > 0:
+        return default
+
+    for idx, d in enumerate(devices):
+        if d['max_input_channels'] >= 1:
+            return idx
+
+    raise RuntimeError("No input device with recording channels available.")
 
 RECORD_SECONDS = 74 * 60  # 4440 seconds
 SAMPLE_RATE = 16000
@@ -23,11 +42,41 @@ ENHANCE_PATH = f"enhanced/session_{SESSION_ID}_enhanced.wav"
 FINGERPRINT_PATH = f"fingerprints/voiceprint_{SESSION_ID}.npy"
 LOG_PATH = f"logs/session_{SESSION_ID}.log"
 
-def record_audio(filename, duration, samplerate, channels, device_idx):
-    print(f"[+] Recording {duration}s from Zoom H6 (Device {device_idx})...")
-    audio = sd.rec(int(duration * samplerate), samplerate=samplerate, channels=channels, device=device_idx)
-    sd.wait()
-    sf.write(filename, audio, samplerate)
+def record_audio(filename, duration, samplerate, channels, device_idx, block_duration=10):
+    """Record audio directly to disk to avoid large memory use.
+
+    Parameters
+    ----------
+    filename : str
+        Path to output WAV file.
+    duration : int or float
+        Recording duration in seconds.
+    samplerate : int
+        Sample rate to record at.
+    channels : int
+        Number of channels to record.
+    device_idx : int
+        Index of the input device.
+    block_duration : float, optional
+        Duration of blocks written to disk in seconds.
+    """
+
+    print(f"[+] Recording {duration}s from device {device_idx}...")
+    block_frames = int(samplerate * block_duration)
+
+    with sf.SoundFile(filename, mode="w", samplerate=samplerate, channels=channels) as f:
+        def callback(indata, frames, time_info, status):
+            if status:
+                print(f"[WARNING] Input status: {status}")
+            f.write(indata.copy())
+
+        with sd.InputStream(samplerate=samplerate,
+                            channels=channels,
+                            device=device_idx,
+                            blocksize=block_frames,
+                            callback=callback):
+            sd.sleep(int(duration * 1000))
+
     print(f"[+] Saved to {filename}")
     return filename
 
@@ -70,9 +119,22 @@ if __name__ == "__main__":
     os.makedirs("fingerprints", exist_ok=True)
     os.makedirs("logs", exist_ok=True)
 
+    parser = argparse.ArgumentParser(description="Record and analyze audio from a microphone")
+    parser.add_argument("--device", help="Input device index or name substring", default=None)
+    parser.add_argument("--duration", type=float, default=RECORD_SECONDS, help="Recording length in seconds")
+    parser.add_argument("--block-duration", type=float, default=10.0, help="Duration of blocks written to disk")
+    args = parser.parse_args()
+
     try:
-        device_index = find_zoom_input()
-        record_audio(RECORD_PATH, RECORD_SECONDS, SAMPLE_RATE, CHANNELS, device_index)
+        if args.device is not None:
+            try:
+                device_index = int(args.device)
+            except ValueError:
+                device_index = find_input_device(args.device)
+        else:
+            device_index = find_input_device()
+
+        record_audio(RECORD_PATH, args.duration, SAMPLE_RATE, CHANNELS, device_index, args.block_duration)
         enhance_audio(RECORD_PATH, ENHANCE_PATH)
         embedding = fingerprint_audio(ENHANCE_PATH)
         matches = compare_with_existing(embedding)

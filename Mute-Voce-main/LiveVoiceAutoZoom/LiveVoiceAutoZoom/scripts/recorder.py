@@ -5,7 +5,7 @@ import numpy as np
 
 SAMPLE_RATE = 44100
 CHANNELS = 1
-BIT_DEPTH = 'PCM_16'
+BIT_DEPTH = 'FLOAT'
 
 def find_zoom_input():
     for idx, d in enumerate(sd.query_devices()):
@@ -19,10 +19,10 @@ def record_audio(duration_sec=10, device_index=None):
         device_index = find_zoom_input()
 
     audio = sd.rec(int(duration_sec * SAMPLE_RATE), samplerate=SAMPLE_RATE,
-                   channels=CHANNELS, dtype='int16', device=device_index)
+                   channels=CHANNELS, dtype='float32', device=device_index)
     sd.wait()
     return audio
 
 def save_audio(filename, audio_data):
-    sf.write(filename, audio_data, SAMPLE_RATE, subtype=BIT_DEPTH)
+    sf.write(filename, audio_data.astype('float32'), SAMPLE_RATE, subtype=BIT_DEPTH)
     print(f"[Saved] Audio to {filename}")

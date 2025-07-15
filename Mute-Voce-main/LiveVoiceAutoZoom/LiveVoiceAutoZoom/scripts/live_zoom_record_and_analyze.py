@@ -34,13 +34,14 @@ def find_input_device(name_substr=None):
     raise RuntimeError("No input device with recording channels available.")
 
 RECORD_SECONDS = 74 * 60  # 4440 seconds
-SAMPLE_RATE = 16000
+SAMPLE_RATE = 44100
 CHANNELS = 1
 SESSION_ID = time.strftime("%Y%m%d_%H%M%S")
 RECORD_PATH = f"recordings/session_{SESSION_ID}.wav"
 ENHANCE_PATH = f"enhanced/session_{SESSION_ID}_enhanced.wav"
 FINGERPRINT_PATH = f"fingerprints/voiceprint_{SESSION_ID}.npy"
 LOG_PATH = f"logs/session_{SESSION_ID}.log"
+CSV_LOG_PATH = "logs/fingerprints.csv"
 
 def record_audio(filename, duration, samplerate, channels, device_idx, block_duration=10):
     """Record audio directly to disk to avoid large memory use.
@@ -64,7 +65,7 @@ def record_audio(filename, duration, samplerate, channels, device_idx, block_dur
     print(f"[+] Recording {duration}s from device {device_idx}...")
     block_frames = int(samplerate * block_duration)
 
-    with sf.SoundFile(filename, mode="w", samplerate=samplerate, channels=channels) as f:
+    with sf.SoundFile(filename, mode="w", samplerate=samplerate, channels=channels, subtype="FLOAT") as f:
         def callback(indata, frames, time_info, status):
             if status:
                 print(f"[WARNING] Input status: {status}")
@@ -73,6 +74,7 @@ def record_audio(filename, duration, samplerate, channels, device_idx, block_dur
         with sd.InputStream(samplerate=samplerate,
                             channels=channels,
                             device=device_idx,
+                            dtype='float32',
                             blocksize=block_frames,
                             callback=callback):
             sd.sleep(int(duration * 1000))
@@ -91,7 +93,7 @@ def enhance_audio(input_file, output_file):
         y = lfilter(b, a, data)
         return y
     filtered_data = bandpass_filter(data, 150, 7000, sr)
-    sf.write(output_file, filtered_data, sr)
+    sf.write(output_file, filtered_data.astype('float32'), sr, subtype='FLOAT')
     print(f"[+] Enhanced audio saved to {output_file}")
     return output_file
 
@@ -101,6 +103,31 @@ def fingerprint_audio(file_path):
     embed = encoder.embed_utterance(wav)
     np.save(FINGERPRINT_PATH, embed)
     print(f"[+] Fingerprint saved to {FINGERPRINT_PATH}")
+
+    try:
+        import csv
+        import librosa
+        y, _ = librosa.load(file_path, sr=SAMPLE_RATE)
+        f0 = librosa.yin(y, fmin=50, fmax=500, sr=SAMPLE_RATE)
+        mean_f0 = float(np.nanmean(f0))
+        centroid = float(np.mean(librosa.feature.spectral_centroid(y=y, sr=SAMPLE_RATE)))
+        row = {
+            "session_id": SESSION_ID,
+            "fingerprint_file": os.path.basename(FINGERPRINT_PATH),
+            "samplerate": SAMPLE_RATE,
+            "format": "float32",
+            "mean_freq": round(mean_f0, 2),
+            "voice_color": round(centroid, 2)
+        }
+        exists = os.path.exists(CSV_LOG_PATH)
+        with open(CSV_LOG_PATH, "a", newline="") as csvfile:
+            writer = csv.DictWriter(csvfile, fieldnames=row.keys())
+            if not exists:
+                writer.writeheader()
+            writer.writerow(row)
+    except Exception as e:
+        print(f"[WARNING] Failed to log fingerprint details: {e}")
+
     return embed
 
 def compare_with_existing(embed):

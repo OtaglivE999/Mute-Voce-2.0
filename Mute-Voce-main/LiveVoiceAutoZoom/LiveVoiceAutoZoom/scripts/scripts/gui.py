@@ -8,6 +8,7 @@ import sounddevice as sd
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
+ main
 from recorder import (
     record_audio,
     save_audio,
@@ -17,6 +18,7 @@ from recorder import (
 
 from recorder import record_audio, save_audio, find_input_device
  main
+
 from vad_enhancer import detect_voiced, enhance_audio
 from speaker_recognition import extract_embedding, load_known_speakers, recognize_speaker
 
@@ -38,8 +40,7 @@ class VoiceRecorderGUI:
 
         self.recording = False
         self.stream = None
-
-
+ main
         devices = list_input_devices()
         if not devices:
             raise RuntimeError("No input devices available")
@@ -51,8 +52,10 @@ class VoiceRecorderGUI:
         tk.OptionMenu(root, self.device_var, *choices).pack()
         self.device_index = devices[0][0]
 
+
         self.device_index = find_input_device()
 main
+
 
         self.start_button = tk.Button(root, text="Start Recording", command=self.start_recording)
         self.start_button.pack(side=tk.LEFT, padx=20)

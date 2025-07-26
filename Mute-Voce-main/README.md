@@ -1,6 +1,7 @@
 # Muta Voce
 Analyze audio for soft voices—far-field or similar—enhance the signal, perform voice-fingerprinting, and build a catalog of voice prints. Keep detailed logs of every detected voice, recording attributes that aid identification (voice color, formants, idiosyncrasies), plus date and precise timestamps. Provide an enhanced track that makes the voices clearly audible and distinct from background noise that other systems might misclassify due to limited training libraries
 
+
 ## Usage
 
 Run `run_all.sh` (Linux/macOS) or `run_all.bat` (Windows). These scripts install
@@ -28,6 +29,7 @@ version is used automatically. Otherwise you will be prompted that the path is
 invalid.
 
 
+ main
 ## LiveVoiceAutoZoom
 
 The LiveVoiceAutoZoom tool can now work with any connected microphone. When launching the GUI you will be presented with a list of available input devices and may select the one you wish to record from.
@@ -40,6 +42,20 @@ to select a microphone directly.
 ### Dependencies
 
 These tools require the `sounddevice` and `soundfile` Python packages.
+ 
+On Linux, the system PortAudio library is also needed. Install the
+dependencies with:
+
+```bash
+pip install -r requirements.txt
+sudo apt-get install libportaudio2  # Linux only
+python - <<'PY'
+import sounddevice
+print('sounddevice loaded', sounddevice.__version__)
+PY
+```
+
+=======
 Install them with:
 
 ```bash
@@ -93,5 +109,6 @@ run_zoom.bat --device "USB Microphone"
 * Audio is captured and enhanced at **48 kHz** using **32‑bit float** WAV files.
 * Fingerprinting now logs details like session ID, sample rate and spectral features to `logs/fingerprints.csv`.
  main
-main
- main
+
+
+

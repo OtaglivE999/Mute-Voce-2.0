@@ -46,6 +46,7 @@ def find_input_device(name_substr=None):
 
     raise RuntimeError("No input device with recording channels available.")
 main
+ main
 
 RECORD_SECONDS = 74 * 60  # 4440 seconds
 SAMPLE_RATE = 44100
@@ -187,7 +188,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     try:
-
+main
         if args.choose_device:
             device_index = select_input_device()
         elif args.device_index is not None:

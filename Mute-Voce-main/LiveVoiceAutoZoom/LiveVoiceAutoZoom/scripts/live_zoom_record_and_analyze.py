@@ -1,9 +1,22 @@
 import os
+import sys
 import time
+import argparse
 import numpy as np
 import sounddevice as sd
 import soundfile as sf
 from resemblyzer import VoiceEncoder, preprocess_wav
+
+from scipy.io.wavfile import write
+from recorder import (
+    find_input_device,
+    list_input_devices,
+    select_input_device,
+)
+
+def find_zoom_input():
+    return find_input_device("Zoom")
+
 import argparse
 
 def find_input_device(name_substr=None):
@@ -32,6 +45,7 @@ def find_input_device(name_substr=None):
             return idx
 
     raise RuntimeError("No input device with recording channels available.")
+main
 
 RECORD_SECONDS = 74 * 60  # 4440 seconds
 SAMPLE_RATE = 44100
@@ -79,6 +93,14 @@ def record_audio(filename, duration, samplerate, channels, device_idx, block_dur
                             callback=callback):
             sd.sleep(int(duration * 1000))
 
+
+def record_audio(filename, duration, samplerate, channels, device_idx):
+    print(f"[+] Recording {duration}s from device {device_idx}...")
+    audio = sd.rec(int(duration * samplerate), samplerate=samplerate, channels=channels, device=device_idx)
+    sd.wait()
+    sf.write(filename, audio, samplerate)
+
+main
     print(f"[+] Saved to {filename}")
     return filename
 
@@ -141,6 +163,18 @@ def compare_with_existing(embed):
     return match_log
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Record live audio and analyze")
+    parser.add_argument("--list-devices", action="store_true", help="List available audio input devices")
+    parser.add_argument("--device-index", type=int, help="Input device index to use")
+    parser.add_argument("--device-name", help="Search for input device by name")
+    parser.add_argument("--choose-device", action="store_true", help="Interactively choose an input device")
+    args = parser.parse_args()
+
+    if args.list_devices:
+        for idx, name in list_input_devices():
+            print(f"{idx}: {name}")
+        sys.exit(0)
+
     os.makedirs("recordings", exist_ok=True)
     os.makedirs("enhanced", exist_ok=True)
     os.makedirs("fingerprints", exist_ok=True)
@@ -153,6 +187,16 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     try:
+
+        if args.choose_device:
+            device_index = select_input_device()
+        elif args.device_index is not None:
+            device_index = args.device_index
+        else:
+            device_index = find_input_device(args.device_name)
+
+        record_audio(RECORD_PATH, RECORD_SECONDS, SAMPLE_RATE, CHANNELS, device_index)
+
         if args.device is not None:
             try:
                 device_index = int(args.device)
@@ -162,6 +206,7 @@ if __name__ == "__main__":
             device_index = find_input_device()
 
         record_audio(RECORD_PATH, args.duration, SAMPLE_RATE, CHANNELS, device_index, args.block_duration)
+ main
         enhance_audio(RECORD_PATH, ENHANCE_PATH)
         embedding = fingerprint_audio(ENHANCE_PATH)
         matches = compare_with_existing(embedding)
@@ -172,3 +217,4 @@ if __name__ == "__main__":
             print(f"[+] Log written to {LOG_PATH}")
     except Exception as e:
         print(f"[ERROR] {e}")
+

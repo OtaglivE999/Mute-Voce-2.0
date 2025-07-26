@@ -43,3 +43,7 @@ batch file are forwarded to the Python script:
 ```
 run_zoom.bat --device "USB Microphone"
 ```
+
+* Audio is captured and enhanced at **48 kHz** using **32‑bit float** WAV files.
+* Fingerprinting now logs details like session ID, sample rate and spectral features to `logs/fingerprints.csv`.
+ main

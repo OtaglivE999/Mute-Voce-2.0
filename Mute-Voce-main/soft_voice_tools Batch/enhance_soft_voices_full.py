@@ -7,9 +7,49 @@ import numpy as np
 
 print("🔊 Full Soft Voice Enhancer + Transcriber")
 
-input_path = input("Enter full path to your audio/video file (.wav, .mp3, .mp4): ").strip().strip('"')
+# allow passing the input file on the command line
+if len(sys.argv) > 1:
+    input_path = sys.argv[1]
+else:
+    input_path = input(
+        "Enter full path to your audio/video file (.wav, .mp3, .mp4): "
+    ).strip().strip('"')
+def sanitize_path(path: str) -> str:
+    """Try to resolve problematic paths that contain spaces.
+
+    Only the file name is renamed if necessary. Parent directories are left
+    untouched to avoid permission issues. If an underscored file already
+    exists, that version is used.
+    """
+
+    if " " not in path:
+        return path
+
+    directory, filename = os.path.split(path)
+    underscored = filename.replace(" ", "_")
+    candidate = os.path.join(directory, underscored)
+
+    if os.path.exists(candidate):
+        print(f"ℹ️ Using existing path '{candidate}'")
+        return candidate
+
+    if os.path.exists(path) and filename != underscored:
+        try:
+            os.rename(path, candidate)
+            print(f"ℹ️ Renamed '{path}' to '{candidate}'")
+            return candidate
+        except Exception as e:
+            print(f"⚠️ Could not rename '{path}': {e}")
+
+    return path
+
+input_path = sanitize_path(input_path)
+
 if not os.path.exists(input_path):
     print(f"❌ File not found: {input_path}")
+    sys.exit(1)
+if not os.path.isfile(input_path):
+    print(f"❌ Path is not a file: {input_path}")
     sys.exit(1)
 
 base_name = os.path.splitext(os.path.basename(input_path))[0]
@@ -44,8 +84,24 @@ if ext == ".mp4":
     try:
         mp4_output = f"enhanced_{base_name}.mp4"
         print("🎞️ Rebuilding MP4 with enhanced audio...")
-        cmd = f'ffmpeg -y -i "{input_path}" -i "{wav_output}" -c:v copy -map 0:v:0 -map 1:a:0 -shortest "{mp4_output}"'
-        subprocess.run(cmd, shell=True, check=True)
+        # build ffmpeg command as a list to avoid shell injection
+        cmd = [
+            "ffmpeg",
+            "-y",
+            "-i",
+            input_path,
+            "-i",
+            wav_output,
+            "-c:v",
+            "copy",
+            "-map",
+            "0:v:0",
+            "-map",
+            "1:a:0",
+            "-shortest",
+            mp4_output,
+        ]
+        subprocess.run(cmd, check=True)
         print(f"✅ Rebuilt MP4 saved as: {mp4_output}")
     except Exception as e:
         print(f"⚠️ Could not rebuild MP4: {e}")

@@ -36,5 +36,14 @@ python live_zoom_record_and_analyze.py [--device DEVICE] [--duration SECS] [--bl
 * `--device` – input device index or name substring (default: system default)
 * `--duration` – recording length in seconds (default: 4440)
 * `--block-duration` – length of audio chunks written to disk (default: 10)
-* Audio is captured and enhanced at **44.1 kHz** using **32‑bit float** WAV files.
+
+On Windows, use `run_zoom.bat` to launch the recorder. Any arguments passed to the
+batch file are forwarded to the Python script:
+
+```
+run_zoom.bat --device "USB Microphone"
+```
+
+* Audio is captured and enhanced at **48 kHz** using **32‑bit float** WAV files.
 * Fingerprinting now logs details like session ID, sample rate and spectral features to `logs/fingerprints.csv`.
+ main

@@ -7,7 +7,16 @@ import time
 import sounddevice as sd
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-from recorder import record_audio, save_audio, find_zoom_input
+
+from recorder import (
+    record_audio,
+    save_audio,
+    find_input_device,
+    list_input_devices,
+)
+
+from recorder import record_audio, save_audio, find_input_device
+main
 from vad_enhancer import detect_voiced, enhance_audio
 from speaker_recognition import extract_embedding, load_known_speakers, recognize_speaker
 
@@ -29,7 +38,21 @@ class VoiceRecorderGUI:
 
         self.recording = False
         self.stream = None
-        self.device_index = find_zoom_input()
+
+
+        devices = list_input_devices()
+        if not devices:
+            raise RuntimeError("No input devices available")
+
+        self.device_var = tk.StringVar()
+        choices = [f"{idx}: {name}" for idx, name in devices]
+        self.device_var.set(choices[0])
+        tk.Label(root, text="Input Device:").pack()
+        tk.OptionMenu(root, self.device_var, *choices).pack()
+        self.device_index = devices[0][0]
+
+        self.device_index = find_input_device()
+ main
 
         self.start_button = tk.Button(root, text="Start Recording", command=self.start_recording)
         self.start_button.pack(side=tk.LEFT, padx=20)
@@ -38,6 +61,7 @@ class VoiceRecorderGUI:
         self.stop_button.pack(side=tk.RIGHT, padx=20)
 
     def start_recording(self):
+        self.device_index = int(self.device_var.get().split(":", 1)[0])
         self.recording = True
         threading.Thread(target=self.record_stream).start()
 
@@ -61,11 +85,11 @@ class VoiceRecorderGUI:
             self.canvas.draw()
 
         with sd.InputStream(device=self.device_index, channels=1,
-                            samplerate=44100, dtype='int16', callback=callback):
+                            samplerate=44100, dtype='float32', callback=callback):
             while self.recording:
                 time.sleep(0.1)
 
-        audio_np = np.array(buffer, dtype=np.int16)
+        audio_np = np.array(buffer, dtype=np.float32)
         save_audio("scripts/temp_raw.wav", audio_np)
 
         voiced = detect_voiced(audio_np)

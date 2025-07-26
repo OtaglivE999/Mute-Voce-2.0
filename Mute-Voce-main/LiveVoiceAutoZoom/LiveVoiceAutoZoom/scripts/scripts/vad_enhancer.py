@@ -15,6 +15,8 @@ def frame_generator(audio, sample_rate, frame_duration_ms):
         yield audio[i:i + frame_len]
 
 def detect_voiced(audio, sample_rate=SAMPLE_RATE):
+    if audio.dtype != np.int16:
+        audio = (audio * 32767).astype(np.int16)
     frames = frame_generator(audio, sample_rate, FRAME_DURATION)
     voiced = []
     for frame in frames:
@@ -24,7 +26,9 @@ def detect_voiced(audio, sample_rate=SAMPLE_RATE):
 
 def enhance_audio(voiced_audio):
     if len(voiced_audio) == 0:
-        return np.zeros(1, dtype=np.int16)
+        return np.zeros(1, dtype=np.float32)
+    if voiced_audio.dtype != np.float32:
+        voiced_audio = voiced_audio.astype(np.float32) / 32767
     normalized = voiced_audio / np.max(np.abs(voiced_audio))
     amplified = normalized * 0.9
-    return (amplified * 32767).astype(np.int16)
+    return amplified.astype(np.float32)

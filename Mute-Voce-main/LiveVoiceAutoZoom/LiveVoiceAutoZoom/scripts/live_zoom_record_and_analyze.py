@@ -2,6 +2,7 @@ import os
 import sys
 import time
 import argparse
+import csv
 import numpy as np
 import sounddevice as sd
 import soundfile as sf
@@ -13,6 +14,8 @@ from recorder import (
     list_input_devices,
     select_input_device,
 )
+from speaker_recognition import cluster_unknown_embeddings
+from vad_enhancer import detect_voiced, enhance_audio as vad_enhance
 
 def find_zoom_input():
     return find_input_device("Zoom")
@@ -45,8 +48,6 @@ def find_input_device(name_substr=None):
             return idx
 
     raise RuntimeError("No input device with recording channels available.")
-main
- main
 
 RECORD_SECONDS = 74 * 60  # 4440 seconds
 SAMPLE_RATE = 44100
@@ -57,6 +58,7 @@ ENHANCE_PATH = f"enhanced/session_{SESSION_ID}_enhanced.wav"
 FINGERPRINT_PATH = f"fingerprints/voiceprint_{SESSION_ID}.npy"
 LOG_PATH = f"logs/session_{SESSION_ID}.log"
 CSV_LOG_PATH = "logs/fingerprints.csv"
+SPEAKER_SUMMARY_CSV = "logs/speaker_summary.csv"
 
 def record_audio(filename, duration, samplerate, channels, device_idx, block_duration=10):
     """Record audio directly to disk to avoid large memory use.
@@ -100,35 +102,28 @@ def record_audio(filename, duration, samplerate, channels, device_idx):
     audio = sd.rec(int(duration * samplerate), samplerate=samplerate, channels=channels, device=device_idx)
     sd.wait()
     sf.write(filename, audio, samplerate)
-
-main
     print(f"[+] Saved to {filename}")
     return filename
 
 def enhance_audio(input_file, output_file):
+    """Apply VAD-based enhancement with mid-range boost."""
     data, sr = sf.read(input_file)
-    from scipy.signal import butter, lfilter
-    def bandpass_filter(data, lowcut, highcut, fs, order=4):
-        nyq = 0.5 * fs
-        low = lowcut / nyq
-        high = highcut / nyq
-        b, a = butter(order, [low, high], btype='band')
-        y = lfilter(b, a, data)
-        return y
-    filtered_data = bandpass_filter(data, 150, 7000, sr)
-    sf.write(output_file, filtered_data.astype('float32'), sr, subtype='FLOAT')
+    voiced = detect_voiced(data, sr)
+    enhanced = vad_enhance(voiced, sr)
+    sf.write(output_file, enhanced.astype('float32'), sr, subtype='FLOAT')
     print(f"[+] Enhanced audio saved to {output_file}")
     return output_file
 
 def fingerprint_audio(file_path):
+    """Create embeddings and log per-speaker fingerprints."""
     wav = preprocess_wav(file_path)
     encoder = VoiceEncoder()
-    embed = encoder.embed_utterance(wav)
+    embed, partials, _ = encoder.embed_utterance(wav, return_partials=True)
     np.save(FINGERPRINT_PATH, embed)
     print(f"[+] Fingerprint saved to {FINGERPRINT_PATH}")
 
+    # Log acoustic features
     try:
-        import csv
         import librosa
         y, _ = librosa.load(file_path, sr=SAMPLE_RATE)
         f0 = librosa.yin(y, fmin=50, fmax=500, sr=SAMPLE_RATE)
@@ -150,6 +145,24 @@ def fingerprint_audio(file_path):
             writer.writerow(row)
     except Exception as e:
         print(f"[WARNING] Failed to log fingerprint details: {e}")
+
+    # Cluster partial embeddings to separate speakers
+    n_clusters = min(5, len(partials)) or 1
+    labels = cluster_unknown_embeddings(partials, n_clusters=n_clusters)
+    speaker_files = []
+    for idx in sorted(set(labels)):
+        speaker_embedding = partials[labels == idx].mean(axis=0)
+        out_file = f"fingerprints/voiceprint_{SESSION_ID}_speaker{idx+1}.npy"
+        np.save(out_file, speaker_embedding)
+        speaker_files.append(os.path.basename(out_file))
+
+    # Log speaker summary
+    exists = os.path.exists(SPEAKER_SUMMARY_CSV)
+    with open(SPEAKER_SUMMARY_CSV, "a", newline="") as csvfile:
+        writer = csv.writer(csvfile)
+        if not exists:
+            writer.writerow(["session_id", "num_speakers", "speaker_files"])
+        writer.writerow([SESSION_ID, len(set(labels)), ";".join(speaker_files)])
 
     return embed
 
@@ -188,7 +201,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     try:
-main
         if args.choose_device:
             device_index = select_input_device()
         elif args.device_index is not None:
@@ -207,7 +219,6 @@ main
             device_index = find_input_device()
 
         record_audio(RECORD_PATH, args.duration, SAMPLE_RATE, CHANNELS, device_index, args.block_duration)
- main
         enhance_audio(RECORD_PATH, ENHANCE_PATH)
         embedding = fingerprint_audio(ENHANCE_PATH)
         matches = compare_with_existing(embedding)

@@ -1,7 +1,16 @@
 
 import numpy as np
+import warnings
+
+# Suppress deprecation warnings emitted by webrtcvad's use of pkg_resources
+warnings.filterwarnings(
+    "ignore",
+    message="pkg_resources is deprecated as an API",
+    category=UserWarning,
+)
+
 import webrtcvad
-import collections
+from scipy.signal import butter, lfilter
 
 SAMPLE_RATE = 44100
 FRAME_DURATION = 30  # ms
@@ -24,11 +33,24 @@ def detect_voiced(audio, sample_rate=SAMPLE_RATE):
             voiced.extend(frame)
     return np.array(voiced, dtype=np.int16)
 
-def enhance_audio(voiced_audio):
+def apply_midrange_enhancement(audio, sample_rate=SAMPLE_RATE, low=300, high=3000, gain=1.5):
+    """Boost mid-range frequencies to improve intelligibility."""
+    nyq = 0.5 * sample_rate
+    low /= nyq
+    high /= nyq
+    b, a = butter(2, [low, high], btype="band")
+    mid = lfilter(b, a, audio)
+    enhanced = audio + gain * mid
+    return np.clip(enhanced, -1.0, 1.0)
+
+
+def enhance_audio(voiced_audio, sample_rate=SAMPLE_RATE):
+    """Normalize, amplify, and boost mid-range frequencies."""
     if len(voiced_audio) == 0:
         return np.zeros(1, dtype=np.float32)
     if voiced_audio.dtype != np.float32:
         voiced_audio = voiced_audio.astype(np.float32) / 32767
     normalized = voiced_audio / np.max(np.abs(voiced_audio))
     amplified = normalized * 0.9
-    return amplified.astype(np.float32)
+    mid_boosted = apply_midrange_enhancement(amplified, sample_rate)
+    return mid_boosted.astype(np.float32)

@@ -1,5 +1,14 @@
 
 import numpy as np
+import warnings
+
+# Suppress deprecation warnings emitted by webrtcvad's use of pkg_resources
+warnings.filterwarnings(
+    "ignore",
+    message="pkg_resources is deprecated as an API",
+    category=UserWarning,
+)
+
 import webrtcvad
 from scipy.signal import butter, lfilter
 

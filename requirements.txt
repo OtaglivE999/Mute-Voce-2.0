@@ -1,2 +1,5 @@
 sounddevice
 soundfile
+webrtcvad
+resemblyzer
+setuptools<81

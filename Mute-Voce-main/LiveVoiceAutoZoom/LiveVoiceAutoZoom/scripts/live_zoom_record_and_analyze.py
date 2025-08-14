@@ -3,6 +3,7 @@ import sys
 import time
 import argparse
 import csv
+
 import warnings
 import numpy as np
 import sounddevice as sd
@@ -14,12 +15,18 @@ warnings.filterwarnings(
     message="pkg_resources is deprecated as an API",
     category=UserWarning,
 )
+from speaker_recognition import cluster_unknown_embeddings
+from vad_enhancer import detect_voiced, enhance_audio as vad_enhance
 
 from resemblyzer import VoiceEncoder, preprocess_wav
 
 from recorder import find_input_device, list_input_devices, select_input_device
 from speaker_recognition import cluster_unknown_embeddings
 from vad_enhancer import detect_voiced, enhance_audio as vad_enhance
+
+
+
+    raise RuntimeError("No input device with recording channels available.")
 
 
 RECORD_SECONDS = 74 * 60  # 4440 seconds
@@ -75,6 +82,14 @@ def record_audio(filename, duration, samplerate, channels, device_idx, block_dur
         ):
             sd.sleep(int(duration * 1000))
 
+
+
+def record_audio(filename, duration, samplerate, channels, device_idx):
+    print(f"[+] Recording {duration}s from device {device_idx}...")
+    audio = sd.rec(int(duration * samplerate), samplerate=samplerate, channels=channels, device=device_idx)
+    sd.wait()
+    sf.write(filename, audio, samplerate)
+
     print(f"[+] Saved to {filename}")
 
 
@@ -83,7 +98,11 @@ def enhance_audio(input_file, output_file):
     data, sr = sf.read(input_file)
     voiced = detect_voiced(data, sr)
     enhanced = vad_enhance(voiced, sr)
+
     sf.write(output_file, enhanced.astype("float32"), sr, subtype="FLOAT")
+
+    sf.write(output_file, enhanced.astype('float32'), sr, subtype='FLOAT')
+
     print(f"[+] Enhanced audio saved to {output_file}")
     return output_file
 
@@ -96,6 +115,7 @@ def fingerprint_audio(file_path):
     np.save(FINGERPRINT_PATH, embed)
     print(f"[+] Fingerprint saved to {FINGERPRINT_PATH}")
 
+    # Log acoustic features
     try:
         import librosa
 
@@ -122,14 +142,25 @@ def fingerprint_audio(file_path):
     except Exception as e:
         print(f"[WARNING] Failed to log fingerprint details: {e}")
 
+
+
+    # Cluster partial embeddings to separate speakers
+
     n_clusters = min(5, len(partials)) or 1
     labels = cluster_unknown_embeddings(partials, n_clusters=n_clusters)
     speaker_files = []
     for idx in sorted(set(labels)):
         speaker_embedding = partials[labels == idx].mean(axis=0)
+
         out_file = f"fingerprints/voiceprint_{SESSION_ID}_speaker{idx + 1}.npy"
         np.save(out_file, speaker_embedding)
         speaker_files.append(os.path.basename(out_file))
+
+        out_file = f"fingerprints/voiceprint_{SESSION_ID}_speaker{idx+1}.npy"
+        np.save(out_file, speaker_embedding)
+        speaker_files.append(os.path.basename(out_file))
+
+    # Log speaker summary
 
     exists = os.path.exists(SPEAKER_SUMMARY_CSV)
     with open(SPEAKER_SUMMARY_CSV, "a", newline="") as csvfile:
@@ -200,6 +231,7 @@ if __name__ == "__main__":
         else:
             device_index = find_input_device(args.device_name)
 
+
         record_audio(
             RECORD_PATH,
             args.duration,
@@ -208,6 +240,19 @@ if __name__ == "__main__":
             device_index,
             args.block_duration,
         )
+
+        record_audio(RECORD_PATH, RECORD_SECONDS, SAMPLE_RATE, CHANNELS, device_index)
+
+        if args.device is not None:
+            try:
+                device_index = int(args.device)
+            except ValueError:
+                device_index = find_input_device(args.device)
+        else:
+            device_index = find_input_device()
+
+        record_audio(RECORD_PATH, args.duration, SAMPLE_RATE, CHANNELS, device_index, args.block_duration)
+
         enhance_audio(RECORD_PATH, ENHANCE_PATH)
         embedding = fingerprint_audio(ENHANCE_PATH)
         matches = compare_with_existing(embedding)
